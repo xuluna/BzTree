@@ -1,8 +1,9 @@
 #ifndef UTILS_H
 #define UTILS_H
 #include <assert.h>
-#include <stdint.h>
+#include <libpmem.h>
 #include <libpmemobj.h>
+#include <stdint.h>
 
 #define MAX_PATH_DEPTH	16
 

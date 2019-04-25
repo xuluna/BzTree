@@ -1,12 +1,13 @@
 #ifndef PMwCAS_H
 #define PMwCAS_H
 
-#include <libpmemobj.h>
-#include <libpmem.h>
 #include "bzconfig.h"
-#include "rel_ptr.h"
 #include "gc.h"
+#include "rel_ptr.h"
 #include "utils.h"
+#include <atomic>
+#include <libpmem.h>
+#include <libpmemobj.h>
 
 #ifdef IS_PMEM
 #define persist		pmem_persist
@@ -19,10 +20,10 @@
 #define DIRTY_BIT		0x2000000000000000
 #define ADDR_MASK		0xffffffffffff
 
-#define ST_UNDECIDED	0
-#define ST_SUCCESS		1
-#define ST_FAILED		2
-#define ST_FREE			3
+#define ST_UNDECIDED 0
+#define ST_SUCCESS 1
+#define ST_FAILED 2
+#define ST_FREE 3
 
 #define RELEASE_NEW_ON_FAILED			1
 #define RELEASE_EXP_ON_SUCCESS			2
@@ -31,8 +32,10 @@
 #define NOCAS_EXECUTE_ON_FAILED			5 //no CAS performed, only used to execute CAS after failure, e.g. unfreeze node when power failure
 #define NOCAS_RELEASE_NEW_ON_FAILED		6 //no CAS performed, only used to reclaim memoried pointed to by field new_val
 
-#define EXCHANGE		InterlockedExchange
-#define CAS				InterlockedCompareExchange
+//#define EXCHANGE		InterlockedExchange
+//#define CAS				InterlockedCompareExchange
+//
+using namespace std;
 
 struct word_entry;
 struct pmwcas_entry;
@@ -45,21 +48,21 @@ typedef pmwcas_pool				*mdesc_pool_t;
 
 struct word_entry
 {
-	rel_ptr<uint64_t>	addr;
-	uint64_t			expect;
-	uint64_t			new_val;
-	mdesc_t				mdesc;
-	off_t				recycle_func; /* 0：无，1：失败时释放new，2：成功时释放expect */
+  rel_ptr<uint64_t> addr;
+  uint expect;
+  uint new_val;
+  mdesc_t mdesc;
+  off_t recycle_func; /* 0：无，1：失败时释放new，2：成功时释放expect */
 };
 
 struct pmwcas_entry
 {
-	uint64_t			status;
-	gc_entry_t			gc_entry;
-	mdesc_pool_t		mdesc_pool;
-	size_t				count;
-	off_t				callback;
-	word_entry			wdescs[WORD_DESCRIPTOR_SIZE];
+  uint64_t status;
+  gc_entry_t gc_entry;
+  mdesc_pool_t mdesc_pool;
+  size_t count;
+  off_t callback;
+  word_entry wdescs[WORD_DESCRIPTOR_SIZE];
 };
 
 struct pmwcas_pool
@@ -71,62 +74,62 @@ struct pmwcas_pool
 	uint64_t		magic[WORD_DESCRIPTOR_SIZE];
 };
 
-/* 
-* 第一次使用pmwcas时调用
-* 初始化描述符状态
-*/
+/*
+ * 第一次使用pmwcas时调用
+ * 初始化描述符状态
+ */
 void pmwcas_first_use(mdesc_pool_t pool, PMEMobjpool * pop, PMEMoid oid);
 
 /*
-* 每次重启时首先调用
-* 设置相对指针的基地址
-* 创建G/C和回收线程
-*/
+ * 每次重启时首先调用
+ * 设置相对指针的基地址
+ * 创建G/C和回收线程
+ */
 int pmwcas_init(mdesc_pool_t pool, PMEMoid oid, PMEMobjpool * pop);
 
 /*
-* 结束时调用
-* GC
-* 销毁G/C
-*/
+ * 结束时调用
+ * GC
+ * 销毁G/C
+ */
 void pmwcas_finish(mdesc_pool_t pool);
 
 /*
-* 每次重启时调用
-* 修复描述符状态
-* 完成或回滚上次未完成的PMwCAS
-* 回收可能泄漏的内存区域
-*/
+ * 每次重启时调用
+ * 修复描述符状态
+ * 完成或回滚上次未完成的PMwCAS
+ * 回收可能泄漏的内存区域
+ */
 void pmwcas_recovery(mdesc_pool_t pool);
 
 /*
-* 每次执行PMwCAS之前调用
-* 确保描述符内目标地址互不相同
-* 返回PMwCAS描述符的相对指针
-* 失败时返回空的相对指针
-*/
+ * 每次执行PMwCAS之前调用
+ * 确保描述符内目标地址互不相同
+ * 返回PMwCAS描述符的相对指针
+ * 失败时返回空的相对指针
+ */
 mdesc_t pmwcas_alloc(mdesc_pool_t pool, off_t recycle_policy = 0, off_t search_pos = 0);
 
 /*
-* 放弃执行PMwCAS, 单线程调用
-* 用于暂时保管分配的内存，以便于系统断电后回收
-*/
+ * 放弃执行PMwCAS, 单线程调用
+ * 用于暂时保管分配的内存，以便于系统断电后回收
+ */
 bool pmwcas_abort(mdesc_t mdesc);
 
 rel_ptr<uint64_t> get_magic(mdesc_pool_t pool, int magic);
 
 /*
-* 每次执行完PMwCAS之后调用
-* 回收对应的PMwCAS描述符
-*/
+ * 每次执行完PMwCAS之后调用
+ * 回收对应的PMwCAS描述符
+ */
 void pmwcas_free(mdesc_t mdesc);
 
 /* 执行释放函数 */
 void pmwcas_word_recycle(mdesc_pool_t pool, rel_ptr<rel_ptr<uint64_t>> ptr_leak);
 /*
-* 向PMwCAS描述符添加一个CAS字段
-* 返回成功/失败
-*/
+ * 向PMwCAS描述符添加一个CAS字段
+ * 返回成功/失败
+ */
 bool pmwcas_add(mdesc_t mdesc, rel_ptr<uint64_t> addr, uint64_t expect, uint64_t new_val, off_t recycle = 0);
 
 /* 执行PMwCAS */
@@ -136,11 +139,11 @@ bool pmwcas_commit(mdesc_t mdesc);
 uint64_t pmwcas_read(uint64_t * addr);
 
 /*
-* 向PMwCAS描述符添加一个CAS字段
-* 但是new_val域留空，用于填写后续分配新内存的地址
-* recycle字段用于指定某些条件下的NVM内存回收
-* 包括0：无，1：失败时回收new_val，2：成功时回收expect
-*/
+ * 向PMwCAS描述符添加一个CAS字段
+ * 但是new_val域留空，用于填写后续分配新内存的地址
+ * recycle字段用于指定某些条件下的NVM内存回收
+ * 包括0：无，1：失败时回收new_val，2：成功时回收expect
+ */
 /*
 在普通内存环境中实现
 parent->child[0] = new node();

@@ -1,16 +1,16 @@
 #ifndef TEST_H
 #define TEST_H
-#include <assert.h>
-#include <iostream>
-#include<iomanip>
-#include <thread>
-#include <vector>
-#include <string.h>
-#include <unordered_map>
-#include <atomic>
-#include "bztree.h"
 #include "bzerrno.h"
-using namespace std;
+#include "bztree.h"
+#include <assert.h>
+#include <atomic>
+#include <iomanip>
+#include <iostream>
+#include <libpmemobj.h>
+#include <string.h>
+#include <thread>
+#include <unordered_map>
+#include <vector>
 
 template<typename T>
 struct performance_test {
@@ -19,11 +19,10 @@ struct performance_test {
 
 template<typename T>
 struct unit_test {
-	atomic<bool> flag = false;
-	struct pmem_layout
-	{
-		bz_tree<T, rel_ptr<T>> tree;
-		T data[10000 * 8];
+  atomic<bool> flag{false};
+  struct pmem_layout {
+    bz_tree<T, rel_ptr<T>> tree;
+    T data[10000 * 8];
 	};
 
 	void print_log(const char * action, T * k, int ret = -1, bool pr = 
@@ -98,108 +97,123 @@ struct unit_test {
 			assert(ret == ENOTFOUND || !ret);
 		}
 		if (consolidate) {
-			int ret = root->consolidate<rel_ptr<T>>(&top_obj->tree,
-				rel_ptr<uint64_t>::null(), rel_ptr<uint64_t>::null());
-			assert(!ret);
+                  int ret = root->template consolidate<rel_ptr<T>>(
+                      &top_obj->tree, rel_ptr<uint64_t>::null(),
+                      rel_ptr<uint64_t>::null());
+                  assert(!ret);
 
-			//失败的consolidate
-			rel_ptr<bz_node<T, uint64_t>> root_2(top_obj->tree.root_);
-			ret = root_2->consolidate<rel_ptr<T>>(&top_obj->tree,
-				rel_ptr<uint64_t>::null(), rel_ptr<uint64_t>(0xabcd));
-			assert(ret);
+                  //失败的consolidate
+                  rel_ptr<bz_node<T, uint64_t>> root_2(top_obj->tree.root_);
+                  ret = root_2->template consolidate<rel_ptr<T>>(
+                      &top_obj->tree, rel_ptr<uint64_t>::null(),
+                      rel_ptr<uint64_t>(0xabcd));
+                  assert(ret);
 		}
 		if (split) {
 			top_obj->tree.print_tree();
 
-			//分裂root
-			rel_ptr<bz_node<T, rel_ptr<T>>> root_1(top_obj->tree.root_);
-			int ret = root_1->split<rel_ptr<T>>(&top_obj->tree, rel_ptr<bz_node<T, uint64_t>>::null(),
-				rel_ptr<uint64_t>::null(), rel_ptr<uint64_t>::null());
-			assert(!ret);
+                        //分裂root
+                        rel_ptr<bz_node<T, rel_ptr<T>>> root_1(top_obj->tree.root_);
+                        int ret = root_1->template split<rel_ptr<T>>(
+                            &top_obj->tree,
+                            rel_ptr<bz_node<T, uint64_t>>::null(),
+                            rel_ptr<uint64_t>::null(),
+                            rel_ptr<uint64_t>::null());
+                        assert(!ret);
 			top_obj->tree.print_tree();
 
-			//分裂left
-			rel_ptr<bz_node<T, uint64_t>> root_2(top_obj->tree.root_);
+                        //分裂left
+                        rel_ptr<bz_node<T, uint64_t>> root_2(top_obj->tree.root_);
 			uint64_t * meta_arr = root_2->rec_meta_arr();
 			rel_ptr<bz_node<T, rel_ptr<T>>> left(*root_2->get_value(meta_arr[0]));
-			ret = left->split<rel_ptr<T>>(&top_obj->tree, root_2,
-				rel_ptr<uint64_t>::null(), rel_ptr<uint64_t>::null());
-			assert(!ret);
+                        ret = left->template split<rel_ptr<T>>(
+                            &top_obj->tree, root_2, rel_ptr<uint64_t>::null(),
+                            rel_ptr<uint64_t>::null());
+                        assert(!ret);
 			top_obj->tree.print_tree();
 
-			//失败的分裂right
-			rel_ptr<bz_node<T, uint64_t>> root_3(top_obj->tree.root_);
+                        //失败的分裂right
+                        rel_ptr<bz_node<T, uint64_t>> root_3(top_obj->tree.root_);
 			meta_arr = root_2->rec_meta_arr();
 			rel_ptr<bz_node<T, rel_ptr<T>>> right(*root_3->get_value(meta_arr[1]));
-			ret = right->split<rel_ptr<T>>(&top_obj->tree, root_3,
-				rel_ptr<uint64_t>(0xabcd), rel_ptr<uint64_t>(0xabcd));
-			assert(ret);
+                        ret = right->template split<rel_ptr<T>>(
+                            &top_obj->tree, root_3, rel_ptr<uint64_t>(0xabcd),
+                            rel_ptr<uint64_t>(0xabcd));
+                        assert(ret);
 			top_obj->tree.print_tree();
 
-			//分裂root
-			rel_ptr<bz_node<T, uint64_t>> root_5(top_obj->tree.root_);
-			ret = root_5->split<rel_ptr<T>>(&top_obj->tree, 
-				rel_ptr<bz_node<T, uint64_t>>::null(),
-				rel_ptr<uint64_t>::null(), rel_ptr<uint64_t>::null());
-			assert(!ret);
+                        //分裂root
+                        rel_ptr<bz_node<T, uint64_t>> root_5(top_obj->tree.root_);
+                        ret = root_5->template split<rel_ptr<T>>(
+                            &top_obj->tree,
+                            rel_ptr<bz_node<T, uint64_t>>::null(),
+                            rel_ptr<uint64_t>::null(),
+                            rel_ptr<uint64_t>::null());
+                        assert(!ret);
 			top_obj->tree.print_tree();
 
-			//分裂left left
-			rel_ptr<bz_node<T, uint64_t>> root_6(top_obj->tree.root_);
+                        //分裂left left
+                        rel_ptr<bz_node<T, uint64_t>> root_6(top_obj->tree.root_);
 			meta_arr = root_6->rec_meta_arr();
 			rel_ptr<uint64_t> grandpa_ptr = root_6->get_value(meta_arr[0]);
 			rel_ptr<bz_node<T, uint64_t>> new_left_plus(*grandpa_ptr);
 			meta_arr = new_left_plus->rec_meta_arr();
 			rel_ptr<bz_node<T, rel_ptr<T>>> left_left(*new_left_plus->get_value(meta_arr[0]));
-			ret = left_left->split<rel_ptr<T>>(&top_obj->tree, new_left_plus,
-				&root_6->status_, grandpa_ptr);
-			assert(!ret);
+                        ret = left_left->template split<rel_ptr<T>>(
+                            &top_obj->tree, new_left_plus, &root_6->status_,
+                            grandpa_ptr);
+                        assert(!ret);
 			top_obj->tree.print_tree();
 		}
 		if (merge) {
-			//需要保证split=true
-			uint64_t * meta_arr;
-			rel_ptr<uint64_t> grandpa_ptr;
-			int ret;
+                  //需要保证split=true
+                  uint64_t *meta_arr;
+                  rel_ptr<uint64_t> grandpa_ptr;
+                  int ret;
 
-			//merge left-left fails
-			rel_ptr<bz_node<T, uint64_t>> root_5(top_obj->tree.root_);
-			meta_arr = root_5->rec_meta_arr();
-			grandpa_ptr = root_5->get_value(meta_arr[0]);
-			rel_ptr<bz_node<T, uint64_t>> left(*grandpa_ptr);
-			meta_arr = left->rec_meta_arr();
-			rel_ptr<bz_node<T, rel_ptr<T>>> left_left(*left->get_value(meta_arr[0]));
-			ret = left_left->merge<rel_ptr<T>>(&top_obj->tree, 0, left,
-				&root_5->status_, rel_ptr<uint64_t>(0xabcd));
-			assert(ret);
+                  // merge left-left fails
+                  rel_ptr<bz_node<T, uint64_t>> root_5(top_obj->tree.root_);
+                  meta_arr = root_5->rec_meta_arr();
+                  grandpa_ptr = root_5->get_value(meta_arr[0]);
+                  rel_ptr<bz_node<T, uint64_t>> left(*grandpa_ptr);
+                  meta_arr = left->rec_meta_arr();
+                  rel_ptr<bz_node<T, rel_ptr<T>>> left_left(
+                      *left->get_value(meta_arr[0]));
+                  ret = left_left->template merge<rel_ptr<T>>(
+                      &top_obj->tree, 0, left, &root_5->status_,
+                      rel_ptr<uint64_t>(0xabcd));
+                  assert(ret);
 
-			//merge left-left
-			rel_ptr<bz_node<T, uint64_t>> root_6(top_obj->tree.root_);
-			meta_arr = root_6->rec_meta_arr();
-			grandpa_ptr = root_6->get_value(meta_arr[0]);
-			rel_ptr<bz_node<T, uint64_t>> left_6(*grandpa_ptr);
-			meta_arr = left_6->rec_meta_arr();
-			rel_ptr<bz_node<T, rel_ptr<T>>> left_left_6(*left_6->get_value(meta_arr[0]));
-			ret = left_left_6->merge<rel_ptr<T>>(&top_obj->tree, 0, left_6,
-				&root_6->status_, grandpa_ptr);
-			assert(!ret);
-			top_obj->tree.print_tree();
+                  // merge left-left
+                  rel_ptr<bz_node<T, uint64_t>> root_6(top_obj->tree.root_);
+                  meta_arr = root_6->rec_meta_arr();
+                  grandpa_ptr = root_6->get_value(meta_arr[0]);
+                  rel_ptr<bz_node<T, uint64_t>> left_6(*grandpa_ptr);
+                  meta_arr = left_6->rec_meta_arr();
+                  rel_ptr<bz_node<T, rel_ptr<T>>> left_left_6(
+                      *left_6->get_value(meta_arr[0]));
+                  ret = left_left_6->template merge<rel_ptr<T>>(
+                      &top_obj->tree, 0, left_6, &root_6->status_, grandpa_ptr);
+                  assert(!ret);
+                  top_obj->tree.print_tree();
 
-			//merge left
-			rel_ptr<bz_node<T, uint64_t>> root_7(top_obj->tree.root_);
-			meta_arr = root_7->rec_meta_arr();
-			rel_ptr<bz_node<T, uint64_t>> left_7(*root_7->get_value(meta_arr[0]));
-			ret = left_7->merge<rel_ptr<T>>(&top_obj->tree, 0, root_7,
-				rel_ptr<uint64_t>::null(), rel_ptr<uint64_t>::null());
-			assert(!ret);
-			top_obj->tree.print_tree();
+                  // merge left
+                  rel_ptr<bz_node<T, uint64_t>> root_7(top_obj->tree.root_);
+                  meta_arr = root_7->rec_meta_arr();
+                  rel_ptr<bz_node<T, uint64_t>> left_7(
+                      *root_7->get_value(meta_arr[0]));
+                  ret = left_7->template merge<rel_ptr<T>>(
+                      &top_obj->tree, 0, root_7, rel_ptr<uint64_t>::null(),
+                      rel_ptr<uint64_t>::null());
+                  assert(!ret);
+                  top_obj->tree.print_tree();
 
-			//merge root fails
-			rel_ptr<bz_node<T, uint64_t>> root_8(top_obj->tree.root_);
-			ret = root_8->merge<rel_ptr<T>>(&top_obj->tree, 0, 
-				rel_ptr<bz_node<T, uint64_t>>::null(),
-				rel_ptr<uint64_t>::null(), rel_ptr<uint64_t>::null());
-			assert(ret);
+                  // merge root fails
+                  rel_ptr<bz_node<T, uint64_t>> root_8(top_obj->tree.root_);
+                  ret = root_8->template merge<rel_ptr<T>>(
+                      &top_obj->tree, 0, rel_ptr<bz_node<T, uint64_t>>::null(),
+                      rel_ptr<uint64_t>::null(), rel_ptr<uint64_t>::null());
+                  assert(ret);
 		}
 		if (tree_insert) {
 			for (int i = 0; i < rec_cnt; ++i) {
@@ -330,12 +344,13 @@ struct unit_test {
 		PMEMobjpool * pop;
 		if (first) {
 			remove(fname);
-			pop = pmemobj_createU(fname, "layout", PMEMOBJ_MIN_POOL * 20, 0666);
-		}
+                        pop = pmemobj_create(fname, "layout",
+                                             PMEMOBJ_MIN_POOL * 20, 0666);
+                }
 		else
 		{
-			pop = pmemobj_openU(fname, "layout");
-		}
+                  pop = pmemobj_open(fname, "layout");
+                }
 		assert(pop);
 
 		auto top_oid = pmemobj_root(pop, sizeof(pmem_layout));
@@ -347,8 +362,9 @@ struct unit_test {
 			tree.first_use(pop, top_oid);
 			for (int i = 0; i < 10000; ++i)
 				if (typeid(T) == typeid(char))
-					_itoa(10 * i, (char*)top_obj->data + i * 8, 10);
-				else
+                                  sprintf((char *)top_obj->data + i * 8, "%d",
+                                          10 * i);
+                                else
 					top_obj->data[i] = 10 * i;
 		}
 		if (tree.init(pop, top_oid))
@@ -367,8 +383,8 @@ struct unit_test {
 		rel_ptr<T> vals[10000];
 		for (int i = 0; i < 10000; ++i) {
 			char_keys[i] = new char[10];
-			_itoa(i, char_keys[i], 10);
-			keys[i] = i;
+                        sprintf(char_keys[i], "%d", i);
+                        keys[i] = i;
 			vals[i] = typeid(T) == typeid(char) ? top_obj->data + 8 * i : top_obj->data + i;
 		}
 		thread t[64 * 8];
@@ -388,8 +404,8 @@ struct unit_test {
 			t[i].join();
 		}
 
-		//打印
-		if (!split) {
+                //打印
+                if (!split) {
 			rel_ptr<bz_node<T, uint64_t>> root(top_obj->tree.root_);
 			uint64_t * meta_arr = root->rec_meta_arr();
 			int rec_cnt = get_record_count(root->status_);
@@ -402,8 +418,8 @@ struct unit_test {
 			top_obj->tree.print_tree();
 		}
 
-		//收工
-		for (int i = 0; i < 10000; ++i) {
+                //收工
+                for (int i = 0; i < 10000; ++i) {
 			delete[] char_keys[i];
 		}
 		tree.finish();
@@ -438,8 +454,9 @@ struct pmwcas_test
 	{
 		const char * fname = "test.pool";
 		remove(fname);
-		auto pop = pmemobj_createU(fname, "layout", PMEMOBJ_MIN_POOL, 0666);
-		auto top_oid = pmemobj_root(pop, sizeof(pmwcas_layout));
+                auto pop =
+                    pmemobj_create(fname, "layout", PMEMOBJ_MIN_POOL, 0666);
+                auto top_oid = pmemobj_root(pop, sizeof(pmwcas_layout));
 		auto top_obj = (pmwcas_layout *)pmemobj_direct(top_oid);
 		pmwcas_first_use(&top_obj->pool, pop, top_oid);
 		pmwcas_init(&top_obj->pool, top_oid, pop);

@@ -1,7 +1,8 @@
+#include "ebr.h"
+#include "PMwCAS.h"
 #include <assert.h>
 #include <atomic>
-#include "PMwCAS.h"
-#include "ebr.h"
+#include <stdlib.h>
 
 #define	ACTIVE_FLAG		(0x80000000U)
 
@@ -59,15 +60,17 @@ ebr_register(ebr_t *ebr)
 	}
 	//cout << "alloc addr " << hex << local_ebr << endl;
 	memset(local_ebr, 0, sizeof(ebr_tls_t));
-	uint64_t r;
-	do {
+        uint64_t r;
+        do {
 		head = ebr->list;
 		//cout << "ini read " << hex << ebr->list << endl;
 		local_ebr->next = head;
-		r = CAS((uint64_t*)&ebr->list, (uint64_t)local_ebr, (uint64_t)head);
-		//cout << "r CAS " << hex << r << endl;
+                r = __sync_val_compare_and_swap((uint64_t *)&ebr->list,
+                                                (uint64_t)head,
+                                                (uint64_t)local_ebr);
+                //cout << "r CAS " << hex << r << endl;
 
-	} while (r != (uint64_t)head);
+        } while (r != (uint64_t)head);
 //	cout << "final " << hex << ebr->list << endl;
 	return 0;
 }

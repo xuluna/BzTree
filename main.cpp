@@ -1,9 +1,9 @@
 #include "test.h"
 #include <iostream>
+
 using namespace std;
 
 int main() {
-	freopen("console.txt", "w", stdout);
 
 	unit_test<uint64_t> tcase;
 
@@ -16,8 +16,8 @@ int main() {
 
 	for (int i = 0; i < 0; ++i) {
 		int test_cnt = 6;
-		//强度混合
-		cout << "mix" << endl;
+                //强度混合
+                cout << "mix" << endl;
 		tcase.run(true, true, true, true, true, true, false, false, false, false, 0, test_cnt * 2);
 		//insert
 		cout << "insert" << endl;
@@ -41,6 +41,5 @@ int main() {
 		cout << "split and merge" << endl;
 		tcase.run(false, false, false, false, false, false, false, true, true, false, 0, 1, 1);
 	}
-	system("pause");
 	return 0;
 }

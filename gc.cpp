@@ -1,8 +1,11 @@
 #include <assert.h>
+#include <atomic>
 #include <thread>
 
 #include "PMwCAS.h"
 #include "gc.h"
+
+using namespace std;
 
 static void
 gc_default_reclaim(gc_entry_t *entry, void *arg)
@@ -90,7 +93,8 @@ gc_limbo(gc_t *gc, void *obj)
 	do {
 		head = gc->limbo;
 		ent->next = head;
-	} while (CAS((uint64_t*)&gc->limbo, (uint64_t)ent, (uint64_t)head) != (uint64_t)head);
+        } while (!__sync_bool_compare_and_swap((uint64_t *)&gc->limbo,
+                                               (uint64_t)head, (uint64_t)ent));
 }
 
 void
@@ -114,10 +118,10 @@ next:
 	*/
 	staging_epoch = ebr_staging_epoch(ebr);
 	//assert(!gc->epoch_list[staging_epoch]);
-	gc->epoch_list[staging_epoch] = (gc_entry_t *)EXCHANGE((uint64_t*)&gc->limbo, NULL);
+        gc->epoch_list[staging_epoch] = (gc_entry_t *)__sync_lock_test_and_set(
+            (uint64_t *)&gc->limbo, NULL);
 
-
-	/*
+        /*
 	* Reclaim the objects in the G/C epoch list.
 	*/
 	gc_list = gc->epoch_list[gc_epoch];

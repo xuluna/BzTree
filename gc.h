@@ -2,6 +2,7 @@
 #define _GC_H_
 
 #include "ebr.h"
+#include <sys/types.h>
 #define	SPINLOCK_BACKOFF_MIN	4
 #define	SPINLOCK_BACKOFF_MAX	128
 #if defined(__x86_64__) || defined(__i386__)
